@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release)",
+      "Bash(where cmake:*)",
+      "Bash(cmd /c \"where cmake\")",
+      "Bash(cmd /c \"cmake --version\")",
+      "Bash(cmd /c \"cl.exe\")",
+      "Bash(cmd /c \"ninja --version\")",
+      "Bash(cmd /c \"powershell -Command \\\\\"Get-Command cmake,cl,ninja -ErrorAction SilentlyContinue | Select-Object Name,Source\\\\\"\")",
+      "Bash(cmd /c \"powershell -NoProfile -Command \\\\\"Get-ChildItem 'C:\\\\\\\\Program Files\\\\\\\\Microsoft Visual Studio' -Recurse -Filter 'cmake.exe' -ErrorAction SilentlyContinue | Select-Object -First 3 FullName\\\\\"\")",
+      "Bash(cmd /c \"dir /b \\\\\"C:\\\\\\\\Program Files\\\\\\\\Microsoft Visual Studio\\\\\"\")",
+      "Bash(cmd /c \"dir /b \\\\\"C:\\\\\\\\Program Files \\(x86\\)\\\\\\\\Microsoft Visual Studio\\\\\"\")",
+      "Bash(cmd /c \"dir /b C:\\\\\\\\\")",
+      "Bash(cat)",
+      "Bash(cmd /c \"C:\\\\Windows\\\\System32\\\\cmd.exe /c C:\\\\tmp\\\\build_wincap.bat\")",
+      "Read(//c/tmp/**)",
+      "Bash(cmd.exe /c \"C:\\\\tmp\\\\build_wincap.bat\")"
+    ]
+  }
+}

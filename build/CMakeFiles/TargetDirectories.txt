@@ -1,0 +1,6 @@
+C:/Users/adarw/code/wincap/build/CMakeFiles/wincap.dir
+C:/Users/adarw/code/wincap/build/CMakeFiles/edit_cache.dir
+C:/Users/adarw/code/wincap/build/CMakeFiles/rebuild_cache.dir
+C:/Users/adarw/code/wincap/build/CMakeFiles/list_install_components.dir
+C:/Users/adarw/code/wincap/build/CMakeFiles/install.dir
+C:/Users/adarw/code/wincap/build/CMakeFiles/install/local.dir

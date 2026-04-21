@@ -1,0 +1,9 @@
+# ninja log v6
+84	1514	7984352835868739	CMakeFiles/wincap.dir/src/encoder.cpp.obj	a8e0743f49018617
+63	1537	7984352835668739	CMakeFiles/wincap.dir/src/screen_capture.cpp.obj	b36bd058193643dc
+71	1556	7984352835748734	CMakeFiles/wincap.dir/src/window_capture.cpp.obj	e834197dba477972
+58	1564	7984352835628753	CMakeFiles/wincap.dir/src/device_list.cpp.obj	51eb67a79b54c54a
+93	1622	7984352835948825	CMakeFiles/wincap.dir/src/muxer.cpp.obj	988c637abdaf438
+77	1777	7984352835788757	CMakeFiles/wincap.dir/src/audio_capture.cpp.obj	881da389524891db
+47	1812	7984352835508825	CMakeFiles/wincap.dir/src/main.cpp.obj	1a1cbbf20ef9b6e4
+1815	2298	7984352853188716	wincap.exe	7f21351ab8311582
