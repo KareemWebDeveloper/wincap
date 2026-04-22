@@ -6,6 +6,8 @@ struct RecordingOptions {
     std::string output        = "recording.mp4";
     int  screenIndex          = 0;
     int  windowIndex          = -1;   // -1 = use screen
+    DWORD windowPid           = 0;    // 0 = use windowIndex instead
+    std::string windowTitle   = "";   // Filter by title (substring match)
     // Crop region; all -1 means full screen/window
     int  regionX = -1, regionY = -1;
     int  regionW = -1, regionH = -1;

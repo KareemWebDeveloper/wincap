@@ -116,6 +116,11 @@ bool CaptureScreen(int screenIndex, const RecordingOptions& opts,
     printf("Recording screen %d (%dx%d", screenIndex, srcW, srcH);
     if (opts.regionW > 0) printf(" crop %d,%d %dx%d", cropX, cropY, cropW, cropH);
     printf(") — press Ctrl+C or run 'wincap stop' to stop\n");
+    fflush(stdout);
+
+    int frameCount = 0;
+    const char* stopReason = nullptr; // null = normal stop via event
+    LARGE_INTEGER loopStart{}; QueryPerformanceCounter(&loopStart);
 
     std::vector<uint8_t> cropBuf;
 
@@ -137,11 +142,18 @@ bool CaptureScreen(int screenIndex, const RecordingOptions& opts,
 
         if (hr == DXGI_ERROR_WAIT_TIMEOUT) continue;
         if (hr == DXGI_ERROR_ACCESS_LOST) {
-            fprintf(stderr, "CaptureScreen: display mode changed, stopping\n");
+            stopReason = "display mode changed (DXGI_ERROR_ACCESS_LOST)";
+            fprintf(stderr, "CaptureScreen: STOP — display mode changed, stopping\n");
+            fflush(stderr);
             break;
         }
         if (FAILED(hr)) {
-            fprintf(stderr, "CaptureScreen: AcquireNextFrame failed (0x%08X)\n", (unsigned)hr);
+            static char reasonBuf[64];
+            snprintf(reasonBuf, sizeof(reasonBuf),
+                     "AcquireNextFrame failed (0x%08X)", (unsigned)hr);
+            stopReason = reasonBuf;
+            fprintf(stderr, "CaptureScreen: STOP — %s\n", stopReason);
+            fflush(stderr);
             break;
         }
 
@@ -178,10 +190,36 @@ bool CaptureScreen(int screenIndex, const RecordingOptions& opts,
             }
 
             d3dContext->Unmap(staging, 0);
+
+            frameCount++;
+            if (frameCount == 1) {
+                printf("CaptureScreen: first frame captured successfully\n");
+                fflush(stdout);
+            }
+            if (frameCount % 300 == 0) {
+                LARGE_INTEGER nowHb{}; QueryPerformanceCounter(&nowHb);
+                double elapsed = (double)(nowHb.QuadPart - loopStart.QuadPart) / freq.QuadPart;
+                printf("CaptureScreen: still recording — %d frames, %.1fs elapsed\n",
+                       frameCount, elapsed);
+                fflush(stdout);
+            }
         }
 
         frameTimestampHns += 10'000'000LL / opts.fps;
     }
+
+    LARGE_INTEGER loopEnd{}; QueryPerformanceCounter(&loopEnd);
+    double totalSec = (double)(loopEnd.QuadPart - loopStart.QuadPart) / freq.QuadPart;
+
+    if (stopReason) {
+        fprintf(stderr, "CaptureScreen: *** Recording stopped unexpectedly: %s ***\n", stopReason);
+        fflush(stderr);
+    } else {
+        printf("CaptureScreen: Recording stopped normally (stop event signalled)\n");
+    }
+    printf("CaptureScreen: finished — %d frames captured, %.1fs elapsed\n",
+           frameCount, totalSec);
+    fflush(stdout);
 
     staging->Release();
     duplication->Release();

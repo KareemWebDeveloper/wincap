@@ -1,6 +1,6 @@
-C:/Users/adarw/code/wincap/build/CMakeFiles/wincap.dir
-C:/Users/adarw/code/wincap/build/CMakeFiles/edit_cache.dir
-C:/Users/adarw/code/wincap/build/CMakeFiles/rebuild_cache.dir
-C:/Users/adarw/code/wincap/build/CMakeFiles/list_install_components.dir
-C:/Users/adarw/code/wincap/build/CMakeFiles/install.dir
-C:/Users/adarw/code/wincap/build/CMakeFiles/install/local.dir
+C:/Users/Kareem Dev/Documents/Work/MawHub/wincap/build/CMakeFiles/wincap.dir
+C:/Users/Kareem Dev/Documents/Work/MawHub/wincap/build/CMakeFiles/edit_cache.dir
+C:/Users/Kareem Dev/Documents/Work/MawHub/wincap/build/CMakeFiles/rebuild_cache.dir
+C:/Users/Kareem Dev/Documents/Work/MawHub/wincap/build/CMakeFiles/list_install_components.dir
+C:/Users/Kareem Dev/Documents/Work/MawHub/wincap/build/CMakeFiles/install.dir
+C:/Users/Kareem Dev/Documents/Work/MawHub/wincap/build/CMakeFiles/install/local.dir

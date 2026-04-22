@@ -42,7 +42,9 @@ static void PrintUsage() {
         "Start options:\n"
         "  --output <file>            Output file          (default: recording.mp4)\n"
         "  --screen <index>           Monitor index        (default: 0)\n"
-        "  --window <index>           Capture a window instead of a screen\n"
+        "  --window <index>           Capture a window by index\n"
+        "  --window-pid <pid>         Capture a window by process ID\n"
+        "  --window-title <text>      Filter by window title (substring match)\n"
         "  --region <x,y,w,h>        Crop region on the screen\n"
         "  --fps <n>                  Frame rate           (default: 30)\n"
         "  --video-bitrate <kbps>     Video bitrate kbps  (default: 8000)\n"
@@ -114,6 +116,19 @@ static int CmdStart(int argc, char** argv) {
         } else if (ArgIs(a, "--window")) {
             const char* v = NextArg(i, argc, argv);
             if (!v || !ParseInt(v, opts.windowIndex)) return 1;
+        } else if (ArgIs(a, "--window-pid")) {
+            const char* v = NextArg(i, argc, argv);
+            long pid = 0;
+            if (!v || !ParseInt(v, reinterpret_cast<int&>(pid)) || pid <= 0) {
+                fprintf(stderr, "--window-pid requires a valid process ID\n");
+                return 1;
+            }
+            opts.windowPid = static_cast<DWORD>(pid);
+            opts.windowIndex = -2; // special marker: use PID
+        } else if (ArgIs(a, "--window-title")) {
+            const char* v = NextArg(i, argc, argv);
+            if (!v) return 1;
+            opts.windowTitle = v;
         } else if (ArgIs(a, "--region")) {
             const char* v = NextArg(i, argc, argv);
             if (!v || !ParseRegion(v, opts.regionX, opts.regionY,
@@ -173,9 +188,59 @@ static int CmdStart(int argc, char** argv) {
     // We do a quick preview capture just to get w/h before init-ing the muxer.
     int capW = 0, capH = 0;
 
-    if (opts.windowIndex >= 0) {
+    // If user specified --width and --height, use those directly
+    if (opts.outputWidth > 0 && opts.outputHeight > 0) {
+        capW = opts.outputWidth;
+        capH = opts.outputHeight;
+    }
+    // Otherwise get dimensions from the capture source
+    else if (opts.windowIndex >= -1) {  // -1 = screen, -2 = use PID, >= 0 = index
         auto windows = GetWindows();
-        if (opts.windowIndex < (int)windows.size()) {
+        
+        // Find window by PID and/or title if specified
+        if (opts.windowPid > 0 || !opts.windowTitle.empty()) {
+            bool found = false;
+            for (auto& wi : windows) {
+                // Match PID if specified
+                bool pidMatch = (opts.windowPid == 0) || (wi.pid == opts.windowPid);
+                // Match title if specified (case-insensitive substring)
+                bool titleMatch = opts.windowTitle.empty();
+                if (!opts.windowTitle.empty()) {
+                    // Convert both to lowercase for case-insensitive comparison
+                    std::string winTitle = wi.title;
+                    std::string searchTitle = opts.windowTitle;
+                    for (auto& c : winTitle) c = tolower(c);
+                    for (auto& c : searchTitle) c = tolower(c);
+                    titleMatch = (winTitle.find(searchTitle) != std::string::npos);
+                }
+                
+                if (pidMatch && titleMatch) {
+                    capW = wi.width;
+                    capH = wi.height;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                if (opts.windowPid > 0 && !opts.windowTitle.empty()) {
+                    fprintf(stderr, "Window with PID %lu and title containing \"%s\" not found\n",
+                            static_cast<unsigned long>(opts.windowPid), opts.windowTitle.c_str());
+                } else if (opts.windowPid > 0) {
+                    fprintf(stderr, "Window with PID %lu not found\n",
+                            static_cast<unsigned long>(opts.windowPid));
+                } else {
+                    fprintf(stderr, "Window with title containing \"%s\" not found\n",
+                            opts.windowTitle.c_str());
+                }
+                fprintf(stderr, "Run 'wincap list windows' to see available windows\n");
+                CloseHandle(stopEvent);
+                MFShutdown();
+                CoUninitialize();
+                return 1;
+            }
+        }
+        // Find window by index
+        else if (opts.windowIndex >= 0 && opts.windowIndex < (int)windows.size()) {
             auto& wi = windows[opts.windowIndex];
             capW = wi.width;
             capH = wi.height;
@@ -232,27 +297,121 @@ static int CmdStart(int argc, char** argv) {
     auto frameCallback = [&](const uint8_t* bgra, int w, int h, int stride,
                               int64_t ts)
     {
-        muxer.WriteVideoFrame(bgra, w, h, stride, ts);
+        if (!muxer.WriteVideoFrame(bgra, w, h, stride, ts)) {
+            static int callbackFailCount = 0;
+            callbackFailCount++;
+            if (callbackFailCount == 1 || callbackFailCount % 30 == 0) {
+                fprintf(stderr, "[main] ERROR: Muxer failed to write video frame - failure #%d\n",
+                        callbackFailCount);
+                fflush(stderr);
+            }
+        }
     };
 
     bool ok;
-    if (opts.windowIndex >= 0) {
+    printf("[main] Starting video capture...\n");
+    fflush(stdout);
+    
+    // Resolve window by PID and/or title if needed
+    if (opts.windowPid > 0 || !opts.windowTitle.empty()) {
+        auto windows = GetWindows();
+        int foundIndex = -1;
+        std::string foundTitle;
+        DWORD foundPid = 0;
+        
+        for (auto& wi : windows) {
+            // Match PID if specified
+            bool pidMatch = (opts.windowPid == 0) || (wi.pid == opts.windowPid);
+            // Match title if specified (case-insensitive substring)
+            bool titleMatch = opts.windowTitle.empty();
+            if (!opts.windowTitle.empty()) {
+                std::string winTitle = wi.title;
+                std::string searchTitle = opts.windowTitle;
+                for (auto& c : winTitle) c = tolower(c);
+                for (auto& c : searchTitle) c = tolower(c);
+                titleMatch = (winTitle.find(searchTitle) != std::string::npos);
+            }
+            
+            if (pidMatch && titleMatch) {
+                foundIndex = wi.index;
+                foundTitle = wi.title;
+                foundPid = wi.pid;
+                break;
+            }
+        }
+        
+        if (foundIndex < 0) {
+            if (opts.windowPid > 0 && !opts.windowTitle.empty()) {
+                fprintf(stderr, "Window with PID %lu and title containing \"%s\" disappeared before capture started\n",
+                        static_cast<unsigned long>(opts.windowPid), opts.windowTitle.c_str());
+            } else if (opts.windowPid > 0) {
+                fprintf(stderr, "Window with PID %lu disappeared before capture started\n",
+                        static_cast<unsigned long>(opts.windowPid));
+            } else {
+                fprintf(stderr, "Window with title containing \"%s\" disappeared before capture started\n",
+                        opts.windowTitle.c_str());
+            }
+            SetEvent(stopEvent);
+            if (audioThread.joinable()) audioThread.join();
+            muxer.Finalize();
+            CloseHandle(stopEvent);
+            MFShutdown();
+            CoUninitialize();
+            return 1;
+        }
+        
+        if (opts.windowPid > 0 && !opts.windowTitle.empty()) {
+            printf("[main] Capturing window index %d: \"%s\" (PID %lu)\n",
+                   foundIndex, foundTitle.c_str(), static_cast<unsigned long>(foundPid));
+        } else if (opts.windowPid > 0) {
+            printf("[main] Capturing window index %d (PID %lu): \"%s\"\n",
+                   foundIndex, static_cast<unsigned long>(foundPid), foundTitle.c_str());
+        } else {
+            printf("[main] Capturing window index %d: \"%s\"\n",
+                   foundIndex, foundTitle.c_str());
+        }
+        fflush(stdout);
+        ok = CaptureWindow(foundIndex, opts, frameCallback, stopEvent);
+    }
+    else if (opts.windowIndex >= 0) {
+        printf("[main] Capturing window index %d\n", opts.windowIndex);
+        fflush(stdout);
         ok = CaptureWindow(opts.windowIndex, opts, frameCallback, stopEvent);
     } else {
+        printf("[main] Capturing screen index %d\n", opts.screenIndex);
+        fflush(stdout);
         ok = CaptureScreen(opts.screenIndex, opts, frameCallback, stopEvent);
     }
+    
+    printf("[main] Video capture function returned: %s\n", ok ? "SUCCESS" : "FAILURE");
+    fflush(stdout);
 
     // --- Cleanup -----------------------------------------------------------
+    printf("[main] Cleanup started - signaling stop event\n");
+    fflush(stdout);
+    
     SetEvent(stopEvent);  // ensure audio thread also exits
 
-    if (audioThread.joinable()) audioThread.join();
+    if (audioThread.joinable()) {
+        printf("[main] Waiting for audio thread to finish...\n");
+        fflush(stdout);
+        audioThread.join();
+        printf("[main] Audio thread joined\n");
+        fflush(stdout);
+    }
 
+    printf("[main] Finalizing muxer...\n");
+    fflush(stdout);
     muxer.Finalize();
     printf("Saved: %s\n", opts.output.c_str());
 
     CloseHandle(stopEvent);
     MFShutdown();
     CoUninitialize();
+    
+    printf("[main] Exiting with code: %d\n", ok ? 0 : 1);
+    fflush(stdout);
+    
     return ok ? 0 : 1;
 }
 

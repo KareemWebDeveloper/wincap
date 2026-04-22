@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/adarw/code/wincap
+# Install script for directory: C:/Users/Kareem Dev/Documents/Work/MawHub/wincap
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -33,13 +33,13 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/." TYPE EXECUTABLE FILES "C:/Users/adarw/code/wincap/build/wincap.exe")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/." TYPE EXECUTABLE FILES "C:/Users/Kareem Dev/Documents/Work/MawHub/wincap/build/wincap.exe")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "C:/Users/adarw/code/wincap/build/install_local_manifest.txt"
+  file(WRITE "C:/Users/Kareem Dev/Documents/Work/MawHub/wincap/build/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()
 if(CMAKE_INSTALL_COMPONENT)
@@ -55,6 +55,6 @@ else()
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "C:/Users/adarw/code/wincap/build/${CMAKE_INSTALL_MANIFEST}"
+  file(WRITE "C:/Users/Kareem Dev/Documents/Work/MawHub/wincap/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

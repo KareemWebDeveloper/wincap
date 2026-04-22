@@ -155,14 +155,28 @@ bool Muxer::Init(const RecordingOptions& opts,
 bool Muxer::WriteVideoFrame(const uint8_t* bgra, int width, int height,
                              int stride, int64_t timestampHns)
 {
-    if (!m_writer || m_videoStreamIndex < 0) return false;
+    if (!m_writer || m_videoStreamIndex < 0) {
+        static bool logged = false;
+        if (!logged) {
+            fprintf(stderr, "[Muxer] ERROR: WriteVideoFrame called with invalid state (writer=%p, streamIdx=%d)\n",
+                    (void*)m_writer, m_videoStreamIndex);
+            fflush(stderr);
+            logged = true;
+        }
+        return false;
+    }
 
     // Scale / centre-crop to output dimensions if needed
     const bool needsScale = (width != m_outW || height != m_outH);
 
     DWORD bufSize = (DWORD)(m_outW * m_outH * 4);
     IMFMediaBuffer* buf = nullptr;
-    if (FAILED(MFCreateMemoryBuffer(bufSize, &buf))) return false;
+    HRESULT hr = MFCreateMemoryBuffer(bufSize, &buf);
+    if (FAILED(hr)) {
+        fprintf(stderr, "[Muxer] ERROR: MFCreateMemoryBuffer failed (0x%08X) for video frame\n", (unsigned)hr);
+        fflush(stderr);
+        return false;
+    }
 
     BYTE* dst = nullptr;
     DWORD maxLen = 0, curLen = 0;
@@ -203,8 +217,19 @@ bool Muxer::WriteVideoFrame(const uint8_t* bgra, int width, int height,
     sample->SetSampleDuration(m_frameDurationHns);
 
     std::lock_guard<std::mutex> lk(m_mutex);
-    HRESULT hr = m_writer->WriteSample(m_videoStreamIndex, sample);
+    hr = m_writer->WriteSample(m_videoStreamIndex, sample);
     sample->Release();
+    
+    if (FAILED(hr)) {
+        static int failCount = 0;
+        failCount++;
+        if (failCount == 1 || failCount % 30 == 0) {
+            fprintf(stderr, "[Muxer] ERROR: WriteSample(video) failed (0x%08X) - failure #%d\n",
+                    (unsigned)hr, failCount);
+            fflush(stderr);
+        }
+    }
+    
     return SUCCEEDED(hr);
 }
 
@@ -215,11 +240,25 @@ bool Muxer::WriteAudioFrame(const float* samples, int numFrames,
                              int channels, int sampleRate,
                              int64_t timestampHns)
 {
-    if (!m_writer || m_audioStreamIndex < 0) return false;
+    if (!m_writer || m_audioStreamIndex < 0) {
+        static bool logged = false;
+        if (!logged) {
+            fprintf(stderr, "[Muxer] ERROR: WriteAudioFrame called with invalid state (writer=%p, streamIdx=%d)\n",
+                    (void*)m_writer, m_audioStreamIndex);
+            fflush(stderr);
+            logged = true;
+        }
+        return false;
+    }
 
     DWORD byteCount = (DWORD)(numFrames * channels * sizeof(float));
     IMFMediaBuffer* buf = nullptr;
-    if (FAILED(MFCreateMemoryBuffer(byteCount, &buf))) return false;
+    HRESULT hr = MFCreateMemoryBuffer(byteCount, &buf);
+    if (FAILED(hr)) {
+        fprintf(stderr, "[Muxer] ERROR: MFCreateMemoryBuffer failed (0x%08X) for audio frame\n", (unsigned)hr);
+        fflush(stderr);
+        return false;
+    }
 
     BYTE* dst = nullptr;
     DWORD maxLen = 0, curLen = 0;
@@ -239,8 +278,19 @@ bool Muxer::WriteAudioFrame(const float* samples, int numFrames,
     sample->SetSampleDuration(durationHns);
 
     std::lock_guard<std::mutex> lk(m_mutex);
-    HRESULT hr = m_writer->WriteSample(m_audioStreamIndex, sample);
+    hr = m_writer->WriteSample(m_audioStreamIndex, sample);
     sample->Release();
+    
+    if (FAILED(hr)) {
+        static int failCount = 0;
+        failCount++;
+        if (failCount == 1 || failCount % 30 == 0) {
+            fprintf(stderr, "[Muxer] ERROR: WriteSample(audio) failed (0x%08X) - failure #%d\n",
+                    (unsigned)hr, failCount);
+            fflush(stderr);
+        }
+    }
+    
     return SUCCEEDED(hr);
 }
 
@@ -250,8 +300,20 @@ bool Muxer::WriteAudioFrame(const float* samples, int numFrames,
 void Muxer::Finalize() {
     std::lock_guard<std::mutex> lk(m_mutex);
     if (m_finalized || !m_writer) return;
+    
+    printf("[Muxer] Finalizing recording...\n");
+    fflush(stdout);
+    
     m_finalized = true;
-    m_writer->Finalize();
+    HRESULT hr = m_writer->Finalize();
+    
+    if (FAILED(hr)) {
+        fprintf(stderr, "[Muxer] ERROR: Finalize() failed (0x%08X)\n", (unsigned)hr);
+        fflush(stderr);
+    } else {
+        printf("[Muxer] Finalize completed successfully\n");
+        fflush(stdout);
+    }
 }
 
 Muxer::~Muxer() {
