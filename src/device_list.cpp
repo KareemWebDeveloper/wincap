@@ -114,12 +114,14 @@ std::vector<WindowInfo> GetWindows() {
 
 void ListWindows() {
     auto windows = GetWindows();
-    printf("%-4s  %-7s  %-12s  %s\n", "IDX", "PID", "SIZE", "TITLE");
+    printf("%-4s  %-16s  %-7s  %-12s  %s\n", "IDX", "HWND", "PID", "SIZE", "TITLE");
     for (auto& w : windows) {
         char size[32];
         snprintf(size, sizeof(size), "%dx%d", w.width, w.height);
-        printf("%-4d  %-7lu  %-12s  %s\n",
-               w.index, static_cast<unsigned long>(w.pid),
+        printf("%-4d  0x%016llX  %-7lu  %-12s  %s\n",
+               w.index,
+               reinterpret_cast<unsigned long long>(w.hwnd),
+               static_cast<unsigned long>(w.pid),
                size, w.title.c_str());
     }
 }

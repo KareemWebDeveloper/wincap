@@ -221,25 +221,20 @@ bool CaptureWindowBitBlt(HWND hwnd, const RecordingOptions& opts,
 }
 
 // --------------------------------------------------------------------------
-// Public entry: pick window by index, then capture it
+// Public entry: capture a specific window by HWND
 // --------------------------------------------------------------------------
-bool CaptureWindow(int windowIndex, const RecordingOptions& opts,
+bool CaptureWindow(HWND hwnd, const RecordingOptions& opts,
                    FrameCallback callback, HANDLE stopEvent)
 {
-    auto windows = GetWindows();
-    if (windowIndex < 0 || windowIndex >= (int)windows.size()) {
-        fprintf(stderr, "[wincap] Window index %d out of range (have %zu windows)\n"
-                        "         Run 'wincap list windows' to see valid indices.\n",
-                windowIndex, windows.size());
+    if (!hwnd || !IsWindow(hwnd)) {
+        fprintf(stderr, "[wincap] Invalid window handle\n");
         return false;
     }
 
-    HWND hwnd = windows[windowIndex].hwnd;
-
     char title[256] = {};
     GetWindowTextA(hwnd, title, (int)sizeof(title));
-    printf("[wincap] Selected window #%d: HWND=%p \"%s\"\n",
-           windowIndex, (void*)hwnd, title);
+    printf("[wincap] Selected window: HWND=%p \"%s\"\n",
+           (void*)hwnd, title);
 
     if (!IsWindowVisible(hwnd)) {
         fprintf(stderr, "[wincap] Warning: window \"%s\" is not visible — capture may be blank\n",
